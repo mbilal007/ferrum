@@ -30,9 +30,19 @@ export interface FrameBuffer {
 /** Terminal color mode */
 export type ColorMode = 'truecolor' | '256';
 
+/** Output rendering mode */
+export type RenderMode = 'halfblock' | 'sixel';
+
 /** Render options for the library API */
 export interface RenderOptions {
   cols?: number;
   rows?: number;
   colorMode?: ColorMode;
+  renderMode?: RenderMode;
+}
+
+/** Abstract renderer that converts pixel data to terminal output. */
+export interface Renderer {
+  render(pixels: PixelBuffer): Buffer;
+  reset(): void;
 }

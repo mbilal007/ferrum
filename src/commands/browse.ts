@@ -5,14 +5,13 @@ import type { BrowserSession } from '../cdp/connection.js';
 import { startScreencast } from '../cdp/screencast.js';
 import type { ScreencastHandle } from '../cdp/screencast.js';
 import { TextCache } from '../cdp/text-cache.js';
-import type { PixelBuffer } from '../renderer/types.js';
-import { DiffWriter } from '../renderer/diff-writer.js';
-import { buildFrameBuffer } from '../renderer/frame-buffer.js';
-import { resizeToTerminal } from '../renderer/resize.js';
-import { applyTextOverlay } from '../renderer/text-overlay.js';
+import type { PixelBuffer, RenderMode } from '../renderer/types.js';
+import { HalfBlockRenderer } from '../renderer/half-block-renderer.js';
+import { SixelRenderer } from '../renderer/sixel-renderer.js';
 import {
   getTerminalSize,
   detectColorMode,
+  detectRenderMode,
   hideCursor,
   showCursor,
   resetStyle,
@@ -28,7 +27,7 @@ const VIEWPORT_HEIGHT = 768;
  * Full browse command: launches Chrome, connects via CDP, streams a live
  * screencast into the terminal, and wires up keyboard/mouse input.
  */
-export async function browseCommand(url: string): Promise<void> {
+export async function browseCommand(url: string, explicitMode?: RenderMode): Promise<void> {
   const { cols, rows } = getTerminalSize();
   if (cols < MIN_COLS || rows < MIN_ROWS) {
     process.stderr.write(
@@ -36,7 +35,8 @@ export async function browseCommand(url: string): Promise<void> {
     );
   }
 
-  process.stderr.write('Connecting to Chrome...\n');
+  const renderMode = detectRenderMode(explicitMode);
+  process.stderr.write(`Connecting to Chrome... (${renderMode} mode)\n`);
 
   let chrome: ChromeInstance;
   try {
@@ -68,13 +68,20 @@ export async function browseCommand(url: string): Promise<void> {
     process.exit(1);
   }
 
-  // Clear the "Connecting to Chrome..." line
+  // Clear the status line
   process.stderr.write('\x1b[1A\x1b[2K');
   process.stdout.write(hideCursor());
 
-  const diffWriter = new DiffWriter();
   const colorMode = detectColorMode();
   const textCache = new TextCache();
+
+  // Build the appropriate renderer
+  const halfBlock = renderMode === 'halfblock'
+    ? new HalfBlockRenderer(cols, rows, colorMode)
+    : null;
+  const sixel = renderMode === 'sixel'
+    ? new SixelRenderer(cols, rows)
+    : null;
 
   await textCache.attach(session.cdp);
 
@@ -105,19 +112,26 @@ export async function browseCommand(url: string): Promise<void> {
     { quality: 80 },
     (pixels: PixelBuffer) => {
       const { cols: c, rows: r } = getTerminalSize();
-      const scaled = resizeToTerminal(pixels, c, r);
-      const frame = buildFrameBuffer(scaled, colorMode);
-      applyTextOverlay(frame, textCache.getTextNodes(), VIEWPORT_WIDTH, VIEWPORT_HEIGHT, textCache.getScrollY(), colorMode);
-      const output = diffWriter.render(frame, colorMode);
-      process.stdout.write(output);
+
+      if (sixel) {
+        sixel.setSize(c, r);
+        const output = sixel.render(pixels);
+        process.stdout.write(output);
+      } else if (halfBlock) {
+        halfBlock.setSize(c, r);
+        halfBlock.setTextOverlay(textCache.getTextNodes(), textCache.getScrollY());
+        const output = halfBlock.render(pixels);
+        process.stdout.write(output);
+      }
     }
   );
 
   inputHandler.start();
 
-  // Reset diff state on terminal resize so the next frame does a full repaint
+  // Reset renderer state on terminal resize
   process.on('SIGWINCH', () => {
-    diffWriter.reset();
+    halfBlock?.reset();
+    sixel?.reset();
     textCache.invalidate();
   });
 }
