@@ -1,0 +1,50 @@
+{
+  "name": "@m_bilal007/ferrum",
+  "version": "0.1.0",
+  "description": "Programmable terminal rendering library — browse the web in your terminal",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ferrum": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test --loader ts-node/esm 'tests/**/*.test.ts'",
+    "lint": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbilal007/ferrum.git"
+  },
+  "keywords": [
+    "terminal",
+    "browser",
+    "cdp",
+    "chrome",
+    "devtools",
+    "rendering",
+    "cli"
+  ],
+  "author": "mbilal007",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mbilal007/ferrum/issues"
+  },
+  "homepage": "https://github.com/mbilal007/ferrum#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.43.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pngjs": "^6.0.5",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
+  }
+}
