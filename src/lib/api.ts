@@ -4,7 +4,6 @@ import { resizeToTerminal } from '../renderer/resize.js';
 import { buildFrameBuffer } from '../renderer/frame-buffer.js';
 import { DiffWriter } from '../renderer/diff-writer.js';
 import { getTerminalSize, detectColorMode } from '../renderer/terminal.js';
-import { findChrome } from '../cdp/chrome-finder.js';
 import { launchChrome } from '../cdp/chrome-launcher.js';
 import { connect } from '../cdp/connection.js';
 
@@ -17,7 +16,6 @@ export async function render(url: string, opts?: RenderOptions): Promise<FrameBu
   const rows = opts?.rows ?? getTerminalSize().rows;
   const mode: ColorMode = opts?.colorMode ?? detectColorMode();
 
-  const chromePath = findChrome();
   const chrome = await launchChrome({ width: 1024, height: 768 });
 
   try {

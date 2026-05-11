@@ -1,19 +1,19 @@
-import { findChrome } from '../cdp/chrome-finder.js';
 import { launchChrome } from '../cdp/chrome-launcher.js';
 import type { ChromeInstance } from '../cdp/chrome-launcher.js';
 import { connect } from '../cdp/connection.js';
 import type { BrowserSession } from '../cdp/connection.js';
 import { startScreencast } from '../cdp/screencast.js';
 import type { ScreencastHandle } from '../cdp/screencast.js';
+import { TextCache } from '../cdp/text-cache.js';
 import type { PixelBuffer } from '../renderer/types.js';
 import { DiffWriter } from '../renderer/diff-writer.js';
 import { buildFrameBuffer } from '../renderer/frame-buffer.js';
 import { resizeToTerminal } from '../renderer/resize.js';
+import { applyTextOverlay } from '../renderer/text-overlay.js';
 import {
   getTerminalSize,
   detectColorMode,
   hideCursor,
-  setupTerminalRestore,
   showCursor,
   resetStyle,
 } from '../renderer/terminal.js';
@@ -37,14 +37,6 @@ export async function browseCommand(url: string): Promise<void> {
   }
 
   process.stderr.write('Connecting to Chrome...\n');
-
-  let chromePath: string;
-  try {
-    chromePath = findChrome();
-  } catch {
-    process.stderr.write('Error: Chrome not found. Install Chrome or Chromium and try again.\n');
-    process.exit(1);
-  }
 
   let chrome: ChromeInstance;
   try {
@@ -80,13 +72,16 @@ export async function browseCommand(url: string): Promise<void> {
   process.stderr.write('\x1b[1A\x1b[2K');
   process.stdout.write(hideCursor());
 
-  setupTerminalRestore();
-
   const diffWriter = new DiffWriter();
   const colorMode = detectColorMode();
+  const textCache = new TextCache();
+
+  await textCache.attach(session.cdp);
 
   let screencast: ScreencastHandle | null = null;
-  const inputHandler = createInputHandler(session.cdp, getTerminalSize);
+  const inputHandler = createInputHandler(session.cdp, getTerminalSize, (deltaY) => {
+    textCache.updateScroll(deltaY);
+  });
 
   const cleanup = async () => {
     inputHandler.stop();
@@ -107,11 +102,12 @@ export async function browseCommand(url: string): Promise<void> {
 
   screencast = await startScreencast(
     session.cdp,
-    { maxFps: 25, quality: 80 },
+    { quality: 80 },
     (pixels: PixelBuffer) => {
       const { cols: c, rows: r } = getTerminalSize();
       const scaled = resizeToTerminal(pixels, c, r);
       const frame = buildFrameBuffer(scaled, colorMode);
+      applyTextOverlay(frame, textCache.getTextNodes(), VIEWPORT_WIDTH, VIEWPORT_HEIGHT, textCache.getScrollY(), colorMode);
       const output = diffWriter.render(frame, colorMode);
       process.stdout.write(output);
     }
@@ -122,5 +118,6 @@ export async function browseCommand(url: string): Promise<void> {
   // Reset diff state on terminal resize so the next frame does a full repaint
   process.on('SIGWINCH', () => {
     diffWriter.reset();
+    textCache.invalidate();
   });
 }

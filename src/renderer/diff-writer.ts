@@ -81,7 +81,7 @@ export class DiffWriter {
     }
 
     this.prevCells = frame.cells;
-    return this.outputBuf.subarray(0, offset);
+    return Buffer.from(this.outputBuf.subarray(0, offset));
   }
 
   /** Clears previous frame state, forcing a full render on the next call. */

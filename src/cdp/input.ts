@@ -28,38 +28,44 @@ function terminalToPage(
  */
 export function createInputHandler(
   cdp: CDPSession,
-  getTerminalSize: () => { cols: number; rows: number }
+  getTerminalSize: () => { cols: number; rows: number },
+  onScroll?: (deltaY: number) => void
 ): InputHandler {
   const onData = (data: Buffer) => {
     const seq = data.toString('binary');
 
-    // Ctrl+C: restore terminal and exit
+    // Ctrl+C: emit SIGINT so the browse command's signal handler runs cleanup
     if (data[0] === 0x03) {
       process.stdout.write('\x1b[?1000l\x1b[?1006l');
-      process.exit(0);
+      process.emit('SIGINT');
+      return;
     }
 
     // Arrow Up
     if (seq === '\x1b[A') {
       void cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: -100 });
+      onScroll?.(-100);
       return;
     }
 
     // Arrow Down
     if (seq === '\x1b[B') {
       void cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: 100 });
+      onScroll?.(100);
       return;
     }
 
     // Page Up
     if (seq === '\x1b[5~') {
       void cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: -500 });
+      onScroll?.(-500);
       return;
     }
 
     // Page Down
     if (seq === '\x1b[6~') {
       void cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: 500 });
+      onScroll?.(500);
       return;
     }
 

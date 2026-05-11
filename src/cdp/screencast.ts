@@ -4,7 +4,6 @@ import { decodeImageBuffer } from '../renderer/decode.js';
 import type { PixelBuffer } from '../renderer/types.js';
 
 export interface ScreencastOptions {
-  maxFps: number;
   quality: number;
 }
 
@@ -21,7 +20,7 @@ export async function startScreencast(
 ): Promise<ScreencastHandle> {
   let stopped = false;
 
-  cdp.on('Page.screencastFrame', async (event: Protocol.Page.ScreencastFrameEvent) => {
+  cdp.on('Page.screencastFrame', (event: Protocol.Page.ScreencastFrameEvent) => {
     if (stopped) return;
 
     try {
@@ -29,16 +28,12 @@ export async function startScreencast(
       const pixels = decodeImageBuffer(buf);
       onFrame(pixels);
     } catch (err) {
-      // Decode failures are non-fatal; skip the frame and keep going
       process.stderr.write(`ferrum: screencast frame decode error: ${String(err)}\n`);
-    } finally {
-      // ACK after processing so Chrome waits for us before sending the next frame
-      try {
-        await cdp.send('Page.screencastFrameAck', { sessionId: event.sessionId });
-      } catch {
-        // CDP session may have closed; nothing to do
-      }
     }
+
+    // ACK fire-and-forget: decode+render above are synchronous, so no overlap is possible.
+    // Chrome won't send the next frame until it receives this ACK.
+    cdp.send('Page.screencastFrameAck', { sessionId: event.sessionId }).catch(() => {});
   });
 
   await cdp.send('Page.startScreencast', {

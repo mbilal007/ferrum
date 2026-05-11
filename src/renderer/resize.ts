@@ -6,6 +6,10 @@ import type { PixelBuffer } from './types.js';
  * by writing directly into a pre-allocated output buffer.
  */
 export function bilinearResize(src: PixelBuffer, targetWidth: number, targetHeight: number): PixelBuffer {
+  if (targetWidth <= 0 || targetHeight <= 0) {
+    return { width: 0, height: 0, data: new Uint8Array(0) };
+  }
+
   const { width: sw, height: sh, data: sd } = src;
   const out = new Uint8Array(targetWidth * targetHeight * 4);
 

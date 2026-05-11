@@ -27,13 +27,13 @@ export async function launchChrome(opts: { width: number; height: number }): Pro
     stdio: ['ignore', 'ignore', 'pipe'],
   });
 
-  // Clean up child when parent exits
-  process.on('exit', () => {
-    try { proc.kill(); } catch { /* already dead */ }
-  });
+  // Clean up child when parent exits; store ref for removal on manual kill
+  const onExit = () => { try { proc.kill(); } catch { /* already dead */ } };
+  process.on('exit', onExit);
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
+      process.removeListener('exit', onExit);
       proc.kill();
       reject(new Error(
         `Chrome did not start within ${LAUNCH_TIMEOUT_MS / 1000}s. ` +
@@ -51,7 +51,10 @@ export async function launchChrome(opts: { width: number; height: number }): Pro
         resolve({
           wsEndpoint: match[1],
           pid: proc.pid!,
-          kill: () => { try { proc.kill(); } catch { /* already dead */ } },
+          kill: () => {
+            process.removeListener('exit', onExit);
+            try { proc.kill(); } catch { /* already dead */ }
+          },
         });
       }
     });
