@@ -38,10 +38,10 @@ export function bilinearResize(src: PixelBuffer, targetWidth: number, targetHeig
       const dstIdx = dstRowBase + dx * 4;
 
       // Bilinear interpolation for each channel
-      out[dstIdx]     = fy1 * (fx1 * sd[p00]     + fx * sd[p10])     + fy * (fx1 * sd[p01]     + fx * sd[p11]);
-      out[dstIdx + 1] = fy1 * (fx1 * sd[p00 + 1] + fx * sd[p10 + 1]) + fy * (fx1 * sd[p01 + 1] + fx * sd[p11 + 1]);
-      out[dstIdx + 2] = fy1 * (fx1 * sd[p00 + 2] + fx * sd[p10 + 2]) + fy * (fx1 * sd[p01 + 2] + fx * sd[p11 + 2]);
-      out[dstIdx + 3] = fy1 * (fx1 * sd[p00 + 3] + fx * sd[p10 + 3]) + fy * (fx1 * sd[p01 + 3] + fx * sd[p11 + 3]);
+      out[dstIdx]     = (fy1 * (fx1 * sd[p00]     + fx * sd[p10])     + fy * (fx1 * sd[p01]     + fx * sd[p11]) + 0.5) | 0;
+      out[dstIdx + 1] = (fy1 * (fx1 * sd[p00 + 1] + fx * sd[p10 + 1]) + fy * (fx1 * sd[p01 + 1] + fx * sd[p11 + 1]) + 0.5) | 0;
+      out[dstIdx + 2] = (fy1 * (fx1 * sd[p00 + 2] + fx * sd[p10 + 2]) + fy * (fx1 * sd[p01 + 2] + fx * sd[p11 + 2]) + 0.5) | 0;
+      out[dstIdx + 3] = (fy1 * (fx1 * sd[p00 + 3] + fx * sd[p10 + 3]) + fy * (fx1 * sd[p01 + 3] + fx * sd[p11 + 3]) + 0.5) | 0;
     }
   }
 

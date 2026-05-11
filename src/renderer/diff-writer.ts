@@ -16,18 +16,16 @@ export class DiffWriter {
    * >60% of cells have changed, avoiding many small cursor moves.
    */
   render(frame: FrameBuffer, _mode: ColorMode): Buffer {
-    const buf = this.outputBuf;
     let offset = 0;
 
     const write = (s: string) => {
       const needed = Buffer.byteLength(s, 'utf8');
-      // Grow buffer if required (rare: large frames approaching 1MB)
-      if (offset + needed > buf.length) {
-        this.outputBuf = Buffer.allocUnsafe(buf.length * 2);
-        buf.copy(this.outputBuf, 0, 0, offset);
-        return write(s);
+      if (offset + needed > this.outputBuf.length) {
+        const grown = Buffer.allocUnsafe(this.outputBuf.length * 2);
+        this.outputBuf.copy(grown, 0, 0, offset);
+        this.outputBuf = grown;
       }
-      offset += buf.write(s, offset, 'utf8');
+      offset += this.outputBuf.write(s, offset, 'utf8');
     };
 
     const doFullRender = () => {
@@ -83,7 +81,7 @@ export class DiffWriter {
     }
 
     this.prevCells = frame.cells;
-    return buf.subarray(0, offset);
+    return this.outputBuf.subarray(0, offset);
   }
 
   /** Clears previous frame state, forcing a full render on the next call. */
@@ -93,10 +91,12 @@ export class DiffWriter {
 }
 
 /** Returns true when two cells are visually identical within color tolerance. */
+const DIFF_THRESHOLD = 12;
+
 function cellsMatch(a: Cell, b: Cell): boolean {
   return (
     a.char === b.char &&
-    colorClose(a.fg, b.fg, 0) &&
-    colorClose(a.bg, b.bg, 0)
+    colorClose(a.fg, b.fg, DIFF_THRESHOLD) &&
+    colorClose(a.bg, b.bg, DIFF_THRESHOLD)
   );
 }
